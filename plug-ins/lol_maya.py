@@ -9,6 +9,8 @@ from pstats import Stats
 from random import uniform
 
 
+PLUGIN_VERSION = '4.2.9'
+
 # profile
 def db(func):
     pr = Profile()
@@ -450,7 +452,7 @@ class MAPGEOTranslator(MPxFileTranslator):
 # plugin register
 def initializePlugin(obj):
     # totally not copied code
-    plugin = MFnPlugin(obj, 'tarngaina', '4.2.7')
+    plugin = MFnPlugin(obj, 'tarngaina-guisai', PLUGIN_VERSION)
     try:
         plugin.registerFileTranslator(
             SKNTranslator.name,
