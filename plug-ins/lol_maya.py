@@ -437,11 +437,11 @@ class MAPGEOTranslator(MPxFileTranslator):
         mg = MAPGEO()
         mg.dump(riot=riot_mapgeo)
         mg.flip()
-        version_choices = ('Version 15 (Latest)', 'Version 13 (Aram)')
+        version_choices = ('Version 17 (Latest)', 'Version 13 (Aram)')
         version_choosed = MGlobal.executeCommandStringResult(
             f'confirmDialog -title "Export MAPGEO" -message "Choose .mapgeo file version to export:" -button "{version_choices[0]}" -button "{version_choices[1]}" -icon "question"')
         if version_choosed ==  version_choices[0]:
-            mg.write(path, version=15)
+            mg.write(path, version=17)
         else:
             mg.write(path, version=13)
         return True
@@ -3564,21 +3564,27 @@ class MAPGEO:
                     f'[MAPGEO.read()]: Wrong file signature: {magic}')
 
             version = bs.read_uint32()
-            if version not in (5, 6, 7, 9, 11, 12, 13, 14, 15):
+            if version not in (5, 6, 7, 9, 11, 12, 13, 14, 15, 16, 17):
                 raise FunnyError(
                     f'[MAPGEO.read()]: Unsupported file version: {version}')
 
             use_seperate_point_lights = 0
             if version < 7:
                 use_seperate_point_lights = bs.read_byte()[0]
-
-            if version >= 9:
-                # baked terrain sampler 1
-                bs.pad(bs.read_int32())
-                if version >= 11:
-                    # baked terrain sampler 2
+            
+            if version >= 17:
+                count = bs.read_int32()
+                for i in range(count):
+                    bs.pad(4) # Index
+                    bs.pad(bs.read_int32()) # Name
+            else:
+                if version >= 9:
+                    # baked terrain sampler 1
                     bs.pad(bs.read_int32())
-
+                    if version >= 11:
+                        # baked terrain sampler 2
+                        bs.pad(bs.read_int32())
+            
             # vertex descriptions
             vd_count = bs.read_uint32()
             vds = [None]*vd_count
@@ -3618,7 +3624,7 @@ class MAPGEO:
                 0: ('f', 4, 1),  # 1 float32
                 1: ('2f', 8, 2),  # 2 float32
                 2: ('3f', 12, 3),  # 3 float32
-                3: ('4f', 16, 4),  # 4 float 32
+                3: ('4f', 16, 4),  # 4 float32
                 4: ('4B', 4, 4),  # 4 byte BGRA
                 5: ('4B', 4, 4),  # 4 byte ZYXW
                 6: ('4B', 4, 4),  # 4 byte RGBA
@@ -3767,13 +3773,17 @@ class MAPGEO:
                 if version >= 7 and version <= 12:
                     model.layer = bs.read_byte()
 
-                # bush - version 14
-                if version >= 14:
-                    model.bush = bs.read_byte()[0]
-
-                if version >= 11:
+                if version >= 11 and version < 14:
                     # render flag
                     bs.pad(1)
+                
+                elif version >= 14:
+                    model.bush = bs.read_byte()[0]
+                    #render flag
+                    if version < 16:
+                        bs.read_byte()
+                    else:
+                        bs.read_uint16()
 
                 if use_seperate_point_lights == 1 and version < 7:
                     # pad seperated point light
@@ -3796,11 +3806,19 @@ class MAPGEO:
                     # baked light so
                     bs.pad(16)
 
-                    if version >= 12:
+                    if version >= 12 and version < 17:
                         # baked paint
                         bs.pad(bs.read_int32())
                         # baked paint so
                         bs.pad(16)
+                
+                if version >= 17:
+                    texture_override_count = bs.read_int32()
+                    for i in range(texture_override_count):
+                        bs.pad(4) # Index
+                        bs.pad(bs.read_int32()) # Name
+                    
+                    bs.pad(16) # Scale + Offset (vec2)
 
             # for modded file with no bucket grid, planar reflector: stop reading
             current = bs.tell()
@@ -3810,7 +3828,7 @@ class MAPGEO:
                 return
 
             # there is no reason to read bucket grids below suporting version
-            if version in (13, 15):
+            if version in (13, 15, 16, 17):
                 if version > 13:
                     # bucket grids
                     bucket_grid_count = bs.read_uint32()
@@ -3951,9 +3969,18 @@ class MAPGEO:
 
             bs.write_ascii('OEGM')
             bs.write_uint32(
-                version,  # version
-                0, 0  # baked terrain sampler 1 and 2
+                version                                     
             )
+
+            if version >= 17: # idk if is needed to write an shader texture override, but here we go
+                bs.write_int32(1) # count
+                bs.write_int32(0) # index of first
+                bs.write_int32(len('BAKED_DIFFUSE_TEXTURE'.encode('utf-8'))) # size
+                bs.write_bytes('BAKED_DIFFUSE_TEXTURE'.encode('utf-8')) # name
+            else:
+                bs.write_uint32(
+                    0, 0  # baked terrain sampler 1 and 2
+                )
 
             vds, vbs, ibs = prepare()
 
@@ -4030,9 +4057,18 @@ class MAPGEO:
                 # quality, 31 = all quality
                 bs.write_bytes(bytes([31]))
 
-                # bush
-                if version > 13:
+                # bush - version 14
+                if version >= 11 and version < 14:
+                    # render flag
+                    bs.write_bytes(bytes([0]))
+                
+                elif version >= 14:
                     bs.write_bytes(bytes([model.bush]))
+                    #render flag
+                    if version < 16:
+                        bs.write_bytes(bytes([0]))
+                    else:
+                        bs.write_uint16(0)
 
                 # render flag
                 bs.write_bytes(bytes([0]))
@@ -4048,12 +4084,18 @@ class MAPGEO:
                     bs.write_float(0.0, 0.0, 0.0, 0.0)
 
                 # baked light
-                bs.write_uint32(0)
-                bs.write_float(0.0, 0.0, 0.0, 0.0)
+                if version >= 9:
+                    bs.write_uint32(0)
+                    bs.write_float(0.0, 0.0, 0.0, 0.0)
+                    if version >= 12 and version < 17:
+                        # baked paint
+                        bs.write_uint32(0)
+                        bs.write_float(0.0, 0.0, 0.0, 0.0)
 
-                # baked paint
-                bs.write_uint32(0)
-                bs.write_float(0.0, 0.0, 0.0, 0.0)
+                if version >= 17:
+                    bs.write_int32(0)  # texture_overide_count
+                    bs.write_vec2([0, 0]) # scale
+                    bs.write_vec2([0, 0]) # offset
 
             # bucket grid
             bucket_grid_count = len(self.bucket_grids)
