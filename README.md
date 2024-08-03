@@ -4,7 +4,7 @@ An attempt to update RiotFileTranslator to Maya 2023.
 ![](https://i.imgur.com/cRpMpYt.gif)
 
 ### Installation:
-1. [Click here and download latest release.](https://github.com/tarngaina/lol_maya/releases)
+1. [Click here and download latest release.](https://github.com/GuiSaiUwU/lol_maya/releases)
 
 
 2. Extract all `plug-ins`, `prefs` and `scripts` folder to `Documents` \ `maya` \ `2023`.
