@@ -20,10 +20,6 @@ An attempt to update RiotFileTranslator to Maya 2023.
     ![](https://i.imgur.com/D0Za7BU.png)
 
 
-### Known issues:
-- Some TFT maps has bad UV mapping, there are no indicates if this will get fixed
-
-
 ### File translators:
 1. Misc:
     - Add fix for read/write file with suffix in name.
