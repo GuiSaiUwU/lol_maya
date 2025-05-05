@@ -9,7 +9,7 @@ from pstats import Stats
 from random import uniform
 
 
-PLUGIN_VERSION = '4.2.9'
+PLUGIN_VERSION = '4.3.0'
 
 # profile
 def db(func):
@@ -3622,17 +3622,22 @@ class MAPGEO:
 
             # for skip reading same vertex buffer
             unpacked_vbs = [None]*vb_count
+            """
+            src: https://github.com/tarngaina/LtMAO/blob/hai/src/LtMAO/pyRitoFile/mapgeo.py  
+            """
             known_formats = {
-                0: ('f', 4, 1),  # 1 float32
-                1: ('2f', 8, 2),  # 2 float32
-                2: ('3f', 12, 3),  # 3 float32
-                3: ('4f', 16, 4),  # 4 float32
-                4: ('4B', 4, 4),  # 4 byte BGRA
-                5: ('4B', 4, 4),  # 4 byte ZYXW
-                6: ('4B', 4, 4),  # 4 byte RGBA
-                7: ('4B', 4, 4),  # 4 byte XYZW
-                8: ('2f', 8, 2)  # unknown 8 bytes
+                0: ('f', 4, 1),        # X_Float32
+                1: ('2f', 8, 2),       # XY_Float32
+                2: ('3f', 12, 3),      # XYZ_Float32
+                3: ('4f', 16, 4),      # XYZW_Float32
+                4: ('4B', 4, 4),       # BGRA_Packed8888
+                5: ('4B', 4, 4),       # ZYXW_Packed8888
+                6: ('4B', 4, 4),       # RGBA_Packed8888
+                7: ('2e', 4, 2),       # XY_Packed1616
+                8: ('4e', 8, 4),       # XYZ_Packed161616 (yes its 8 bytes not 6) [riot adding 2 pad bcs free memory download idk]
+                9: ('4e', 8, 4)        # XYZW_Packed16161616
             }
+            
             known_descs = [
                 0,  # position
                 1,  # blendweight
